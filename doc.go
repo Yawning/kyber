@@ -18,5 +18,10 @@
 // the Kyber paper are included for users that seek an authenticated key
 // exchange.
 //
+// Note that the algorithm is not finalized yet, and may change in a backward
+// incompatible manner in the future.  The designers currently recommend
+// combining Kyber with an established pre-quantum algorithm like ECDH, and
+// using the Kyber-768 parameter set.
+//
 // For more information, see https://pq-crystals.org/kyber/index.shtml.
 package kyber
