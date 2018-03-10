@@ -33,7 +33,7 @@ var (
 	// equivalent to AES-192.
 	//
 	// This parameter set has a 2400 byte private key, 1088 byte public key,
-	// and a 1088 byte cipher text.
+	// and a 1152 byte cipher text.
 	Kyber768 = newParameterSet("Kyber-768", 3)
 
 	// Kyber1024 is the Kyber-1024 parameter set, which aims to provide
