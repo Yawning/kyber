@@ -50,7 +50,8 @@ type UAKEInitiatorState struct {
 // message.
 //
 // On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.
+// sharedSecret will contain a randomized value.  Providing a malformed
+// responder message will result in a panic.
 func (s *UAKEInitiatorState) Shared(recv []byte) (sharedSecret []byte, fail int) {
 	xof := sha3.NewShake256()
 	var tk []byte
