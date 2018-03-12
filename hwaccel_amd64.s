@@ -38,7 +38,7 @@ TEXT ·xgetbv0Amd64(SB), NOSPLIT, $0-8
 //    meaningful difference on modern Intel systems, and it's not immediately
 //    obvious to me how Go will align global data.
 //  * The constants are renamed slightly.
-//
+
 // Note:
 //  * These must be kept in sync with the values in params.go.
 //    Currently assumes Q = 7681, Q_INV = 57857.
@@ -60,8 +60,6 @@ DATA ·lowdword<>+0x08(SB)/8, $0x0000ffff0000ffff
 DATA ·lowdword<>+0x10(SB)/8, $0x0000ffff0000ffff
 DATA ·lowdword<>+0x18(SB)/8, $0x0000ffff0000ffff
 GLOBL ·lowdword<>(SB), (NOPTR+RODATA), $32
-
-// DATA ·lowdword<>+0x00(SB)/8, $0x0000ffff0000ffff
 
 DATA ·q_x16<>+0x00(SB)/8, $0x1e011e011e011e01
 DATA ·q_x16<>+0x08(SB)/8, $0x1e011e011e011e01
