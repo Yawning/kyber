@@ -93,7 +93,16 @@ func (p *poly) pointwiseAcc(a, b *polyVec) {
 			t = montgomeryReduce(4613 * uint32(b.vec[i].coeffs[j]))
 			p.coeffs[j] += montgomeryReduce(uint32(a.vec[i].coeffs[j]) * uint32(t))
 		}
-		p.coeffs[j] = barrettReduce(p.coeffs[j])
+
+		// HACK HACK HACK:
+		//
+		// The AVX2 code assumes fully reduced coefficients.  Since it's
+		// the only acceleration target right now, just do this here.
+		if isHardwareAccelerated {
+			p.coeffs[j] = freeze(p.coeffs[j])
+		} else {
+			p.coeffs[j] = barrettReduce(p.coeffs[j])
+		}
 	}
 }
 

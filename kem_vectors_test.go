@@ -30,12 +30,25 @@ func TestKEMVectors(t *testing.T) {
 		t.Fatalf("loadCompactTestVectors(): %v", err)
 	}
 
+	forceDisableHardwareAcceleration()
+	doTestKEMVectors(t)
+
+	if !canAccelerate {
+		t.Log("Hardware acceleration not supported on this host.")
+		return
+	}
+	mustInitHardwareAcceleration()
+	doTestKEMVectors(t)
+}
+
+func doTestKEMVectors(t *testing.T) {
+	impl := "_" + hardwareAccelImpl
 	for _, p := range allParams {
-		t.Run(p.Name(), func(t *testing.T) { doTestKEMVectors(t, p) })
+		t.Run(p.Name()+impl, func(t *testing.T) { doTestKEMVectorsPick(t, p) })
 	}
 }
 
-func doTestKEMVectors(t *testing.T, p *ParameterSet) {
+func doTestKEMVectorsPick(t *testing.T, p *ParameterSet) {
 	require := require.New(t)
 
 	// The full test vectors are gigantic, and aren't checked into the

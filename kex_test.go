@@ -15,9 +15,22 @@ import (
 )
 
 func TestAKE(t *testing.T) {
+	forceDisableHardwareAcceleration()
+	doTestKEX(t)
+
+	if !canAccelerate {
+		t.Log("Hardware acceleration not supported on this host.")
+		return
+	}
+	mustInitHardwareAcceleration()
+	doTestKEX(t)
+}
+
+func doTestKEX(t *testing.T) {
+	impl := "_" + hardwareAccelImpl
 	for _, p := range allParams {
-		t.Run(p.Name()+"_UAKE", func(t *testing.T) { doTestUAKE(t, p) })
-		t.Run(p.Name()+"_AKE", func(t *testing.T) { doTestAKE(t, p) })
+		t.Run(p.Name()+"_UAKE"+impl, func(t *testing.T) { doTestUAKE(t, p) })
+		t.Run(p.Name()+"_AKE"+impl, func(t *testing.T) { doTestAKE(t, p) })
 	}
 }
 

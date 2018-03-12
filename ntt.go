@@ -10,7 +10,7 @@ package kyber
 // Computes negacyclic number-theoretic transform (NTT) of a polynomial (vector
 // of 256 coefficients) in place; inputs assumed to be in normal order, output
 // in bitreversed order.
-func ntt(p *[kyberN]uint16) {
+func nttRef(p *[kyberN]uint16) {
 	var j int
 	k := 1
 	for level := 7; level >= 0; level-- {
@@ -35,7 +35,7 @@ func ntt(p *[kyberN]uint16) {
 // Computes inverse of negacyclic number-theoretic transform (NTT) of a
 // polynomial (vector of 256 coefficients) in place; inputs assumed to be in
 // bitreversed order, output in normal order.
-func invntt(a *[kyberN]uint16) {
+func invnttRef(a *[kyberN]uint16) {
 	for level := 0; level < 8; level++ {
 		distance := 1 << uint(level)
 		for start := 0; start < distance; start++ {

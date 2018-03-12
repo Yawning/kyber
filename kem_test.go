@@ -17,17 +17,41 @@ import (
 
 const nTests = 100
 
-var allParams = []*ParameterSet{
-	Kyber512,
-	Kyber768,
-	Kyber1024,
+var (
+	allParams = []*ParameterSet{
+		Kyber512,
+		Kyber768,
+		Kyber1024,
+	}
+
+	canAccelerate bool
+)
+
+func mustInitHardwareAcceleration() {
+	initHardwareAcceleration()
+	if !IsHardwareAccelerated() {
+		panic("initHardwareAcceleration() failed")
+	}
 }
 
 func TestKEM(t *testing.T) {
+	forceDisableHardwareAcceleration()
+	doTestKEM(t)
+
+	if !canAccelerate {
+		t.Log("Hardware acceleration not supported on this host.")
+		return
+	}
+	mustInitHardwareAcceleration()
+	doTestKEM(t)
+}
+
+func doTestKEM(t *testing.T) {
+	impl := "_" + hardwareAccelImpl
 	for _, p := range allParams {
-		t.Run(p.Name()+"_Keys", func(t *testing.T) { doTestKEMKeys(t, p) })
-		t.Run(p.Name()+"_Invalid_SecretKey_A", func(t *testing.T) { doTestKEMInvalidSkA(t, p) })
-		t.Run(p.Name()+"_Invalid_CipherText", func(t *testing.T) { doTestKEMInvalidCipherText(t, p) })
+		t.Run(p.Name()+"_Keys"+impl, func(t *testing.T) { doTestKEMKeys(t, p) })
+		t.Run(p.Name()+"_Invalid_SecretKey_A"+impl, func(t *testing.T) { doTestKEMInvalidSkA(t, p) })
+		t.Run(p.Name()+"_Invalid_CipherText"+impl, func(t *testing.T) { doTestKEMInvalidCipherText(t, p) })
 	}
 }
 
@@ -132,10 +156,23 @@ func requirePublicKeyEqual(require *require.Assertions, a, b *PublicKey) {
 }
 
 func BenchmarkKEM(b *testing.B) {
+	forceDisableHardwareAcceleration()
+	doBenchmarkKEM(b)
+
+	if !canAccelerate {
+		b.Log("Hardware acceleration not supported on this host.")
+		return
+	}
+	mustInitHardwareAcceleration()
+	doBenchmarkKEM(b)
+}
+
+func doBenchmarkKEM(b *testing.B) {
+	impl := "_" + hardwareAccelImpl
 	for _, p := range allParams {
-		b.Run(p.Name()+"_GenerateKeyPair", func(b *testing.B) { doBenchKEMGenerateKeyPair(b, p) })
-		b.Run(p.Name()+"_KEMEncrypt", func(b *testing.B) { doBenchKEMEncDec(b, p, true) })
-		b.Run(p.Name()+"_KEMDecrypt", func(b *testing.B) { doBenchKEMEncDec(b, p, false) })
+		b.Run(p.Name()+"_GenerateKeyPair"+impl, func(b *testing.B) { doBenchKEMGenerateKeyPair(b, p) })
+		b.Run(p.Name()+"_KEMEncrypt"+impl, func(b *testing.B) { doBenchKEMEncDec(b, p, true) })
+		b.Run(p.Name()+"_KEMDecrypt"+impl, func(b *testing.B) { doBenchKEMEncDec(b, p, false) })
 	}
 }
 
@@ -182,4 +219,8 @@ func doBenchKEMEncDec(b *testing.B, p *ParameterSet, isEnc bool) {
 			b.Fatalf("KEMDecrypt(): key mismatch")
 		}
 	}
+}
+
+func init() {
+	canAccelerate = IsHardwareAccelerated()
 }
