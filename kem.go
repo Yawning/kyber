@@ -21,6 +21,10 @@ var (
 	// an invalid size.
 	ErrInvalidKeySize = errors.New("kyber: invalid key size")
 
+	// ErrInvalidCipherTextSize is the error thrown via a panic when a byte
+	// serialized ciphertext is an invalid size.
+	ErrInvalidCipherTextSize = errors.New("kyber: invalid ciphertext size")
+
 	// ErrInvalidPrivateKey is the error returned when a byte serialized
 	// private key is malformed.
 	ErrInvalidPrivateKey = errors.New("kyber: invalid private key")
@@ -127,7 +131,7 @@ func (p *ParameterSet) GenerateKeyPair(rng io.Reader) (*PublicKey, *PrivateKey, 
 func (pk *PublicKey) KEMEncrypt(rng io.Reader) (cipherText []byte, sharedSecret []byte, err error) {
 	var buf [SymSize]byte
 	if _, err = io.ReadFull(rng, buf[:]); err != nil {
-		return
+		return nil, nil, err
 	}
 	buf = sha3.Sum256(buf[:]) // Don't release system RNG output
 
@@ -152,13 +156,14 @@ func (pk *PublicKey) KEMEncrypt(rng io.Reader) (cipherText []byte, sharedSecret 
 // Kyber key encapsulation mechanism.
 //
 // On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.
+// sharedSecret will contain a randomized value.  Providing a cipher text
+// that is obviously malformed (too large/small) will result in a panic.
 func (sk *PrivateKey) KEMDecrypt(cipherText []byte) (sharedSecret []byte, fail int) {
 	var buf [2 * SymSize]byte
 
 	p := sk.PublicKey.p
 	if len(cipherText) != p.CipherTextSize() {
-		return nil, -1
+		panic(ErrInvalidCipherTextSize)
 	}
 	p.indcpaDecrypt(buf[:SymSize], cipherText, sk.sk)
 

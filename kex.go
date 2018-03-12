@@ -8,9 +8,20 @@
 package kyber
 
 import (
+	"errors"
 	"io"
 
 	"golang.org/x/crypto/sha3"
+)
+
+var (
+	// ErrInvalidMessageSize is the error thrown via a panic when a initator
+	// or responder message is an invalid size.
+	ErrInvalidMessageSize = errors.New("kyber: invalid message size")
+
+	// ErrParameterSetMismatch is the error thrown via a panic when there
+	// is a mismatch between parameter sets.
+	ErrParameterSetMismatch = errors.New("kyber: parameter set mismatch")
 )
 
 // UAKEInitiatorMessageSize returns the size of the initiator UAKE message
@@ -80,21 +91,20 @@ func (pk *PublicKey) NewUAKEInitiatorState(rng io.Reader) (*UAKEInitiatorState, 
 // a initiator UAKE message.
 //
 // On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.
+// sharedSecret will contain a randomized value.  Providing a malformed
+// initator message will result in a panic.
 func (sk *PrivateKey) UAKEResponderShared(rng io.Reader, recv []byte) (message, sharedSecret []byte, fail int) {
 	p := sk.PublicKey.p
 	pkLen := p.PublicKeySize()
 
-	fail = -1
-
 	// Deserialize the peer's ephemeral public key.
 	if len(recv) != p.UAKEInitiatorMessageSize() {
-		return
+		panic(ErrInvalidMessageSize)
 	}
 	rawPk, ct := recv[:pkLen], recv[pkLen:]
 	pk, err := p.PublicKeyFromBytes(rawPk)
 	if err != nil {
-		return
+		panic(err)
 	}
 
 	xof := sha3.NewShake256()
@@ -102,7 +112,7 @@ func (sk *PrivateKey) UAKEResponderShared(rng io.Reader, recv []byte) (message, 
 
 	message, tk, err = pk.KEMEncrypt(rng)
 	if err != nil {
-		return
+		panic(err)
 	}
 	xof.Write(tk)
 
@@ -140,16 +150,17 @@ type AKEInitiatorState struct {
 // message, and long term initiator private key.
 //
 // On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.
+// sharedSecret will contain a randomized value.   Providing a malformed
+// responder message, or a private key that uses a different ParamterSet
+// than the AKEInitiatorState will result in a panic.
 func (s *AKEInitiatorState) Shared(recv []byte, initiatorPrivateKey *PrivateKey) (sharedSecret []byte, fail int) {
 	p := s.eSk.PublicKey.p
-	fail = -1
 
 	if initiatorPrivateKey.PublicKey.p != p {
-		return
+		panic(ErrParameterSetMismatch)
 	}
 	if len(recv) != p.AKEResponderMessageSize() {
-		return
+		panic(ErrInvalidMessageSize)
 	}
 	ctLen := p.CipherTextSize()
 
@@ -192,25 +203,25 @@ func (pk *PublicKey) NewAKEInitiatorState(rng io.Reader) (*AKEInitiatorState, er
 // a initiator AKE message and long term initiator public key.
 //
 // On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.
+// sharedSecret will contain a randomized value.  Providing a malformed
+// initiator message, or a public key that uses a different ParamterSet
+// than the PrivateKey will result in a panic.
 func (sk *PrivateKey) AKEResponderShared(rng io.Reader, recv []byte, peerPublicKey *PublicKey) (message, sharedSecret []byte, fail int) {
 	p := sk.PublicKey.p
 	pkLen := p.PublicKeySize()
 
-	fail = -1
-
 	if peerPublicKey.p != p {
-		return
+		panic(ErrParameterSetMismatch)
 	}
 
 	// Deserialize the peer's ephemeral public key.
 	if len(recv) != p.AKEInitiatorMessageSize() {
-		return
+		panic(ErrInvalidMessageSize)
 	}
 	rawPk, ct := recv[:pkLen], recv[pkLen:]
 	pk, err := p.PublicKeyFromBytes(rawPk)
 	if err != nil {
-		return
+		panic(err)
 	}
 
 	message = make([]byte, 0, p.AKEResponderMessageSize())
@@ -220,14 +231,14 @@ func (sk *PrivateKey) AKEResponderShared(rng io.Reader, recv []byte, peerPublicK
 
 	tmp, tk, err = pk.KEMEncrypt(rng)
 	if err != nil {
-		return
+		panic(err)
 	}
 	xof.Write(tk)
 	message = append(message, tmp...)
 
 	tmp, tk, err = peerPublicKey.KEMEncrypt(rng)
 	if err != nil {
-		return
+		panic(err)
 	}
 	xof.Write(tk)
 	message = append(message, tmp...)
