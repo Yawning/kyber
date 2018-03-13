@@ -1106,43 +1106,13 @@ TEXT ·nttAVX2(SB), NOSPLIT, $0-16
 	VZEROUPPER
 	RET
 
-// For some inexplicable reason, Go's assembler pukes on VPERMQ, so do things
-// the hard way.  Maybe I'm doing something wrong, fuck if I know.
-#define VPERMQ_0xd8_Y4_Y4() \
-	BYTE $0xc4; BYTE $0xe3; BYTE $0xfd; BYTE $0x00; BYTE $0xe4; BYTE $0xd8
-
-#define VPERMQ_0xd8_Y5_Y5() \
-	BYTE $0xc4; BYTE $0xe3; BYTE $0xfd; BYTE $0x00; BYTE $0xed; BYTE $0xd8
-
-#define VPERMQ_0xd8_Y6_Y6() \
-	BYTE $0xc4; BYTE $0xe3; BYTE $0xfd; BYTE $0x00; BYTE $0xf6; BYTE $0xd8
-
-#define VPERMQ_0xd8_Y7_Y7() \
-	BYTE $0xc4; BYTE $0xe3; BYTE $0xfd; BYTE $0x00; BYTE $0xff; BYTE $0xd8
-
-#define VPERMQ_0xd8_top_half() \
-	VPERMQ_0xd8_Y4_Y4(); \
-	VPERMQ_0xd8_Y5_Y5(); \
-	VPERMQ_0xd8_Y6_Y6(); \
-	VPERMQ_0xd8_Y7_Y7()
-
-#define VPERMQ_0xd8_Y8_Y8() \
-	BYTE $0xc4; BYTE $0x43; BYTE $0xfd; BYTE $0x00; BYTE $0xc0; BYTE $0xd8
-
-#define VPERMQ_0xd8_Y9_Y9() \
-	BYTE $0xc4; BYTE $0x43; BYTE $0xfd; BYTE $0x00; BYTE $0xc9; BYTE $0xd8
-
-#define VPERMQ_0xd8_Y10_Y10() \
-	BYTE $0xc4; BYTE $0x43; BYTE $0xfd; BYTE $0x00; BYTE $0xd2; BYTE $0xd8
-
-#define VPERMQ_0xd8_Y11_Y11() \
-	BYTE $0xc4; BYTE $0x43; BYTE $0xfd; BYTE $0x00; BYTE $0xdb; BYTE $0xd8
-
-#define VPERMQ_0xd8_bottom_half() \
-	VPERMQ_0xd8_Y8_Y8();   \
-	VPERMQ_0xd8_Y9_Y9();   \
-	VPERMQ_0xd8_Y10_Y10(); \
-	VPERMQ_0xd8_Y11_Y11()
+// Go 1.10's VPERMQ support expects the imm8 to be a `int8`, instead of a
+// `uint8`.  While this is fixed in master, use the signed representation
+// for now till it's reasonable to expect versions with the fix to be widely
+// available.
+//
+// See: https://github.com/golang/go/issues/24378
+#define invntt_VPERMQ_IDX $-40 /* $0xd8 */
 
 // func invnttAVX2(inout, omegas *uint16)
 TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
@@ -1180,13 +1150,10 @@ TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
 	VPACKUSDW Y13, Y12, Y4
 	VPACKUSDW Y7, Y6, Y7
 	VPACKUSDW Y15, Y14, Y6
-	/*
-	 VPERMQ $0xd8,Y4,Y4
-	 VPERMQ $0xd8,Y5,Y5
-	 VPERMQ $0xd8,Y6,Y6
-	 VPERMQ $0xd8,Y7,Y7
-	*/
-	VPERMQ_0xd8_top_half()
+	VPERMQ    invntt_VPERMQ_IDX, Y4, Y4
+	VPERMQ    invntt_VPERMQ_IDX, Y5, Y5
+	VPERMQ    invntt_VPERMQ_IDX, Y6, Y6
+	VPERMQ    invntt_VPERMQ_IDX, Y7, Y7
 	VPAND     Y3, Y8, Y12
 	VPAND     Y3, Y9, Y13
 	VPAND     Y3, Y10, Y14
@@ -1199,13 +1166,10 @@ TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
 	VPACKUSDW Y13, Y12, Y8
 	VPACKUSDW Y11, Y10, Y11
 	VPACKUSDW Y15, Y14, Y10
-	/*
-	 VPERMQ $0xd8,Y8,Y8
-	 VPERMQ $0xd8,Y9,Y9
-	 VPERMQ $0xd8,Y10,Y10
-	 VPERMQ $0xd8,Y11,Y11
-	*/
-	VPERMQ_0xd8_bottom_half()
+	VPERMQ    invntt_VPERMQ_IDX, Y8, Y8
+	VPERMQ    invntt_VPERMQ_IDX, Y9, Y9
+	VPERMQ    invntt_VPERMQ_IDX, Y10, Y10
+	VPERMQ    invntt_VPERMQ_IDX, Y11, Y11
 
 	// level 0
 	// update
@@ -1648,13 +1612,10 @@ TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
 	VPACKUSDW Y13, Y12, Y4
 	VPACKUSDW Y7, Y6, Y7
 	VPACKUSDW Y15, Y14, Y6
-	/*
-	 VPERMQ $0xd8,Y4,Y4
-	 VPERMQ $0xd8,Y5,Y5
-	 VPERMQ $0xd8,Y6,Y6
-	 VPERMQ $0xd8,Y7,Y7
-	 */
-	VPERMQ_0xd8_top_half()
+	VPERMQ    invntt_VPERMQ_IDX, Y4, Y4
+	VPERMQ    invntt_VPERMQ_IDX, Y5, Y5
+	VPERMQ    invntt_VPERMQ_IDX, Y6, Y6
+	VPERMQ    invntt_VPERMQ_IDX, Y7, Y7
 	VPAND     Y3, Y8, Y12
 	VPAND     Y3, Y9, Y13
 	VPAND     Y3, Y10, Y14
@@ -1667,13 +1628,10 @@ TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
 	VPACKUSDW Y13, Y12, Y8
 	VPACKUSDW Y11, Y10, Y11
 	VPACKUSDW Y15, Y14, Y10
-	/*
-	 VPERMQ $0xd8,Y8,Y8
-	 VPERMQ $0xd8,Y9,Y9
-	 VPERMQ $0xd8,Y10,Y10
-	 VPERMQ $0xd8,Y11,Y11
-	*/
-	VPERMQ_0xd8_bottom_half()
+	VPERMQ    invntt_VPERMQ_IDX, Y8, Y8
+	VPERMQ    invntt_VPERMQ_IDX, Y9, Y9
+	VPERMQ    invntt_VPERMQ_IDX, Y10, Y10
+	VPERMQ    invntt_VPERMQ_IDX, Y11, Y11
 
 	// level 0
 	// update
