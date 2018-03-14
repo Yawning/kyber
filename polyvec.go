@@ -110,16 +110,6 @@ func pointwiseAccRef(p *poly, a, b *polyVec) {
 			p.coeffs[j] += montgomeryReduce(uint32(a.vec[i].coeffs[j]) * uint32(t))
 		}
 
-		// The AVX2 inverse-NTT implementation (and possibly others in the
-		// future) require fully reduced inputs, while the reference code
-		// does not.
-		//
-		// Do the right thing based on the current implementation.  Eventually
-		// the AVX2 code will have it's own implementation(s) of this routine.
-		if isHardwareAccelerated {
-			p.coeffs[j] = freeze(p.coeffs[j])
-		} else {
-			p.coeffs[j] = barrettReduce(p.coeffs[j])
-		}
+		p.coeffs[j] = barrettReduce(p.coeffs[j])
 	}
 }
