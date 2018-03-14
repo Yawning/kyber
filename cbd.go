@@ -20,6 +20,10 @@ func loadLittleEndian(x []byte, bytes int) uint64 {
 // coefficients distributed according to a centered binomial distribution
 // with parameter eta.
 func (p *poly) cbd(buf []byte, eta int) {
+	hardwareAccelImpl.cbdFn(p, buf, eta)
+}
+
+func cbdRef(p *poly, buf []byte, eta int) {
 	switch eta {
 	case 3:
 		var a, b [4]uint32

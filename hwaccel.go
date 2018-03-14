@@ -16,6 +16,7 @@ var (
 		nttFn:          nttRef,
 		invnttFn:       invnttRef,
 		pointwiseAccFn: pointwiseAccRef,
+		cbdFn:          cbdRef,
 	}
 )
 
@@ -24,6 +25,7 @@ type hwaccelImpl struct {
 	nttFn          func(*[kyberN]uint16)
 	invnttFn       func(*[kyberN]uint16)
 	pointwiseAccFn func(*poly, *polyVec, *polyVec)
+	cbdFn          func(*poly, []byte, int)
 }
 
 func forceDisableHardwareAcceleration() {

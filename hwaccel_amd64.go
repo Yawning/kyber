@@ -162,6 +162,9 @@ func pointwiseAccK3AVX2(dst *uint16, a, b **uint16)
 //go:noescape
 func pointwiseAccK4AVX2(dst *uint16, a, b **uint16)
 
+//go:noescape
+func cbdEta4AVX2(dst *uint16, buf *byte)
+
 func supportsAVX2() bool {
 	// https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
 	const (
@@ -202,6 +205,7 @@ var implAVX2 = &hwaccelImpl{
 	nttFn:          nttOpt,
 	invnttFn:       invnttOpt,
 	pointwiseAccFn: pointwiseAccOpt,
+	cbdFn:          cbdOpt,
 }
 
 func nttOpt(p *[kyberN]uint16) {
@@ -232,6 +236,15 @@ func pointwiseAccOpt(p *poly, a, b *polyVec) {
 		pointwiseAccK3AVX2(&p.coeffs[0], &aVec[0], &bVec[0])
 	case 4:
 		pointwiseAccK4AVX2(&p.coeffs[0], &aVec[0], &bVec[0])
+	}
+}
+
+func cbdOpt(p *poly, buf []byte, eta int) {
+	switch eta {
+	case 4:
+		cbdEta4AVX2(&p.coeffs[0], &buf[0])
+	default:
+		cbdRef(p, buf, eta)
 	}
 }
 

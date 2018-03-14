@@ -99,6 +99,18 @@ DATA ·montsq_x16<>+0x10(SB)/8, $0x15c115c115c115c1
 DATA ·montsq_x16<>+0x18(SB)/8, $0x15c115c115c115c1
 GLOBL ·montsq_x16<>(SB), (NOPTR+RODATA), $32
 
+DATA ·mask11<>+0x00(SB)/8, $0x1111111111111111
+DATA ·mask11<>+0x08(SB)/8, $0x1111111111111111
+DATA ·mask11<>+0x10(SB)/8, $0x1111111111111111
+DATA ·mask11<>+0x18(SB)/8, $0x1111111111111111
+GLOBL ·mask11<>(SB), (NOPTR+RODATA), $32
+
+DATA ·mask0f<>+0x00(SB)/8, $0x0f0f0f0f0f0f0f0f
+DATA ·mask0f<>+0x08(SB)/8, $0x0f0f0f0f0f0f0f0f
+DATA ·mask0f<>+0x10(SB)/8, $0x0f0f0f0f0f0f0f0f
+DATA ·mask0f<>+0x18(SB)/8, $0x0f0f0f0f0f0f0f0f
+GLOBL ·mask0f<>(SB), (NOPTR+RODATA), $32
+
 // func nttAVX2(inout, zetas *uint16)
 TEXT ·nttAVX2(SB), NOSPLIT, $0-16
 	MOVQ inout+0(FP), DI
@@ -2689,6 +2701,49 @@ looptop4:
 	ADDQ $32, BX
 	CMPQ AX, $16
 	JB   looptop4
+
+	VZEROUPPER
+	RET
+
+// func cbdEta4AVX2(dst *uint16, b *byte)
+TEXT ·cbdEta4AVX2(SB), NOSPLIT, $0-16
+	MOVQ dst+0(FP), DI
+	MOVQ b+8(FP), SI
+
+	VMOVDQU ·mask11<>(SB), Y0
+	VMOVDQU ·mask0f<>(SB), Y1
+	VMOVDQU ·q_x16<>(SB), Y2
+
+	MOVQ $256, DX
+
+looptop:
+	VMOVUPD    0(SI), Y3
+	VPAND      Y3, Y0, Y4
+	VPSRLW     $1, Y3, Y3
+	VPAND      Y3, Y0, Y5
+	VPADDB     Y5, Y4, Y4
+	VPSRLW     $1, Y3, Y3
+	VPAND      Y3, Y0, Y5
+	VPADDB     Y5, Y4, Y4
+	VPSRLW     $1, Y3, Y3
+	VPAND      Y3, Y0, Y3
+	VPADDB     Y3, Y4, Y3
+	VPSRLW     $4, Y3, Y4
+	VPAND      Y3, Y1, Y3
+	VPAND      Y4, Y1, Y4
+	VPSUBB     Y4, Y3, Y3
+	VPMOVSXBW  X3, Y4
+	VPADDW     Y2, Y4, Y4
+	VMOVUPD    Y4, 0(DI)
+	VPERM2F128 $0x21, Y3, Y3, Y3
+	VPMOVSXBW  X3, Y4
+	VPADDW     Y2, Y4, Y4
+	VMOVUPD    Y4, 32(DI)
+
+	ADDQ $64, DI
+	ADDQ $32, SI
+	SUBQ $32, DX
+	JA   looptop
 
 	VZEROUPPER
 	RET
