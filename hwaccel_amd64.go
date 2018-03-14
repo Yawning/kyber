@@ -153,6 +153,15 @@ func nttAVX2(inout, zetas *uint16)
 //go:noescape
 func invnttAVX2(inout, omegas *uint16)
 
+//go:noescape
+func pointwiseAccK2AVX2(dst *uint16, a, b **uint16)
+
+//go:noescape
+func pointwiseAccK3AVX2(dst *uint16, a, b **uint16)
+
+//go:noescape
+func pointwiseAccK4AVX2(dst *uint16, a, b **uint16)
+
 func supportsAVX2() bool {
 	// https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
 	const (
@@ -189,10 +198,10 @@ func supportsAVX2() bool {
 }
 
 var implAVX2 = &hwaccelImpl{
-	name:                   "AVX2",
-	nttFn:                  nttOpt,
-	invnttFn:               invnttOpt,
-	pointwiseAccMustFreeze: true,
+	name:           "AVX2",
+	nttFn:          nttOpt,
+	invnttFn:       invnttOpt,
+	pointwiseAccFn: pointwiseAccOpt,
 }
 
 func nttOpt(p *[kyberN]uint16) {
@@ -201,6 +210,29 @@ func nttOpt(p *[kyberN]uint16) {
 
 func invnttOpt(a *[kyberN]uint16) {
 	invnttAVX2(&a[0], &zetasInvExp[0])
+}
+
+func pointwiseAccOpt(p *poly, a, b *polyVec) {
+	// Unlike the C code, a polyVec won't have the polys in contigious
+	// memory.  So each assembly function takes vectors of pointers to
+	// each polyvec's polys.
+	//
+	// Kind of ugly, but it's the price to pay for flexibility...
+
+	var aVec, bVec [4]*uint16 // k is in {2,3,4}.
+	for i := range a.vec {
+		aVec[i] = &a.vec[i].coeffs[0]
+		bVec[i] = &b.vec[i].coeffs[0]
+	}
+
+	switch len(a.vec) {
+	case 2:
+		pointwiseAccK2AVX2(&p.coeffs[0], &aVec[0], &bVec[0])
+	case 3:
+		pointwiseAccK3AVX2(&p.coeffs[0], &aVec[0], &bVec[0])
+	case 4:
+		pointwiseAccK4AVX2(&p.coeffs[0], &aVec[0], &bVec[0])
+	}
 }
 
 func initHardwareAcceleration() {

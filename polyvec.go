@@ -86,6 +86,22 @@ func (v *polyVec) invntt() {
 
 // Pointwise multiply elements of a and b and accumulate into p.
 func (p *poly) pointwiseAcc(a, b *polyVec) {
+	hardwareAccelImpl.pointwiseAccFn(p, a, b)
+}
+
+// Add vectors of polynomials.
+func (v *polyVec) add(a, b *polyVec) {
+	for i, p := range v.vec {
+		p.add(a.vec[i], b.vec[i])
+	}
+}
+
+// Get compressed and serialized size in bytes.
+func (v *polyVec) compressedSize() int {
+	return len(v.vec) * compressedCoeffSize
+}
+
+func pointwiseAccRef(p *poly, a, b *polyVec) {
 	for j := 0; j < kyberN; j++ {
 		t := montgomeryReduce(4613 * uint32(b.vec[0].coeffs[j])) // 4613 = 2^{2*18} % q
 		p.coeffs[j] = montgomeryReduce(uint32(a.vec[0].coeffs[j]) * uint32(t))
@@ -100,22 +116,10 @@ func (p *poly) pointwiseAcc(a, b *polyVec) {
 		//
 		// Do the right thing based on the current implementation.  Eventually
 		// the AVX2 code will have it's own implementation(s) of this routine.
-		if hardwareAccelImpl.pointwiseAccMustFreeze {
+		if isHardwareAccelerated {
 			p.coeffs[j] = freeze(p.coeffs[j])
 		} else {
 			p.coeffs[j] = barrettReduce(p.coeffs[j])
 		}
 	}
-}
-
-// Add vectors of polynomials.
-func (v *polyVec) add(a, b *polyVec) {
-	for i, p := range v.vec {
-		p.add(a.vec[i], b.vec[i])
-	}
-}
-
-// Get compressed and serialized size in bytes.
-func (v *polyVec) compressedSize() int {
-	return len(v.vec) * compressedCoeffSize
 }

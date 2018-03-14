@@ -29,14 +29,16 @@ TEXT ·xgetbv0Amd64(SB), NOSPLIT, $0-8
 	MOVL DX, 4(BX)
 	RET
 
-// NTT and inverse-NTT take from the `avx2` implementation, converted to Go's
-// assembly dialect.  I do this in lieu of cutting myself to see if I still
-// can feel pain.
+// Routines taken from the `avx2` implementation, converted to Go's assembly
+// dialect.  I do this in lieu of cutting myself to see if I still can feel
+// pain.
 //
 // The conversion is mostly direct except:
 //  * Instead of aligned loads, unaligned loads are used, as there is no
 //    meaningful difference on modern Intel systems, and it's not immediately
 //    obvious to me how Go will align global data.
+//  * The polyvec_pointwise_acc family of routines take vectors of pointers
+//    due to the different internal memory layout of a polyvec.
 //  * The constants are renamed slightly.
 
 // Note:
@@ -90,6 +92,12 @@ DATA ·v_x16<>+0x08(SB)/8, $0x4442444244424442
 DATA ·v_x16<>+0x10(SB)/8, $0x4442444244424442
 DATA ·v_x16<>+0x18(SB)/8, $0x4442444244424442
 GLOBL ·v_x16<>(SB), (NOPTR+RODATA), $32
+
+DATA ·montsq_x16<>+0x00(SB)/8, $0x15c115c115c115c1
+DATA ·montsq_x16<>+0x08(SB)/8, $0x15c115c115c115c1
+DATA ·montsq_x16<>+0x10(SB)/8, $0x15c115c115c115c1
+DATA ·montsq_x16<>+0x18(SB)/8, $0x15c115c115c115c1
+GLOBL ·montsq_x16<>(SB), (NOPTR+RODATA), $32
 
 // func nttAVX2(inout, zetas *uint16)
 TEXT ·nttAVX2(SB), NOSPLIT, $0-16
@@ -1112,7 +1120,7 @@ TEXT ·nttAVX2(SB), NOSPLIT, $0-16
 // available.
 //
 // See: https://github.com/golang/go/issues/24378
-#define invntt_VPERMQ_IDX $-40 /* $0xd8 */
+#define invntt_VPERMQ_IDX $-40 // $0xd8
 
 // func invnttAVX2(inout, omegas *uint16)
 TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
@@ -2258,6 +2266,429 @@ TEXT ·invnttAVX2(SB), NOSPLIT, $0-16
 	VMOVDQU Y9, (288)(DI)
 	VMOVDQU Y10, (320)(DI)
 	VMOVDQU Y11, (352)(DI)
+
+	VZEROUPPER
+	RET
+
+// func pointwiseAccK2AVX2(dst *uint16, a, b **uint16)
+TEXT ·pointwiseAccK2AVX2(SB), NOSPLIT, $0-24
+	MOVQ dst+0(FP), DI
+	MOVQ a+8(FP), SI
+	MOVQ b+16(FP), DX
+
+	VMOVDQU ·qinv_x16<>(SB), Y0
+	VMOVDQU ·q_x16<>(SB), Y1
+	VMOVDQU ·montsq_x16<>(SB), Y2
+
+	XORQ AX, AX
+	XORQ BX, BX
+
+	MOVQ (8)(SI), R8  // a[1]
+	MOVQ (SI), SI     // a[0]
+	MOVQ (8)(DX), R11 // b[1]
+	MOVQ (DX), DX     // b[0]
+
+looptop2:
+	// load a
+	VMOVDQA (SI)(BX*1), Y4
+	VMOVDQA (32)(SI)(BX*1), Y5
+	VMOVDQA (64)(SI)(BX*1), Y6
+	VMOVDQA (R8)(BX*1), Y7
+	VMOVDQA (32)(R8)(BX*1), Y8
+	VMOVDQA (64)(R8)(BX*1), Y9
+
+	// mul montsq
+	VPMULLW Y2, Y4, Y3
+	VPMULHW Y2, Y4, Y10
+	VPMULLW Y2, Y5, Y4
+	VPMULHW Y2, Y5, Y11
+	VPMULLW Y2, Y6, Y5
+	VPMULHW Y2, Y6, Y12
+	VPMULLW Y2, Y7, Y6
+	VPMULHW Y2, Y7, Y13
+	VPMULLW Y2, Y8, Y7
+	VPMULHW Y2, Y8, Y14
+	VPMULLW Y2, Y9, Y8
+	VPMULHW Y2, Y9, Y15
+
+	// reduce
+	VPMULLW Y0, Y3, Y3
+	VPMULLW Y0, Y4, Y4
+	VPMULLW Y0, Y5, Y5
+	VPMULLW Y0, Y6, Y6
+	VPMULLW Y0, Y7, Y7
+	VPMULLW Y0, Y8, Y8
+	VPMULHW Y1, Y3, Y3
+	VPMULHW Y1, Y4, Y4
+	VPMULHW Y1, Y5, Y5
+	VPMULHW Y1, Y6, Y6
+	VPMULHW Y1, Y7, Y7
+	VPMULHW Y1, Y8, Y8
+	VPSUBW  Y3, Y10, Y3
+	VPSUBW  Y4, Y11, Y4
+	VPSUBW  Y5, Y12, Y5
+	VPSUBW  Y6, Y13, Y6
+	VPSUBW  Y7, Y14, Y7
+	VPSUBW  Y8, Y15, Y8
+
+	// load b
+	VMOVDQA (DX)(BX*1), Y9
+	VMOVDQA (32)(DX)(BX*1), Y10
+	VMOVDQA (64)(DX)(BX*1), Y11
+	VMOVDQA (R11)(BX*1), Y12
+	VMOVDQA (32)(R11)(BX*1), Y13
+	VMOVDQA (64)(R11)(BX*1), Y14
+
+	// mul
+	VPMULLW Y3, Y9, Y15
+	VPMULHW Y3, Y9, Y9
+	VPMULLW Y4, Y10, Y3
+	VPMULHW Y4, Y10, Y10
+	VPMULLW Y5, Y11, Y4
+	VPMULHW Y5, Y11, Y11
+	VPMULLW Y6, Y12, Y5
+	VPMULHW Y6, Y12, Y12
+	VPMULLW Y7, Y13, Y6
+	VPMULHW Y7, Y13, Y13
+	VPMULLW Y8, Y14, Y7
+	VPMULHW Y8, Y14, Y14
+
+	// reduce
+	VPMULLW Y0, Y15, Y15
+	VPMULLW Y0, Y3, Y3
+	VPMULLW Y0, Y4, Y4
+	VPMULLW Y0, Y5, Y5
+	VPMULLW Y0, Y6, Y6
+	VPMULLW Y0, Y7, Y7
+	VPMULHW Y1, Y15, Y15
+	VPMULHW Y1, Y3, Y3
+	VPMULHW Y1, Y4, Y4
+	VPMULHW Y1, Y5, Y5
+	VPMULHW Y1, Y6, Y6
+	VPMULHW Y1, Y7, Y7
+	VPSUBW  Y15, Y9, Y15
+	VPSUBW  Y3, Y10, Y3
+	VPSUBW  Y4, Y11, Y4
+	VPSUBW  Y5, Y12, Y5
+	VPSUBW  Y6, Y13, Y6
+	VPSUBW  Y7, Y14, Y7
+
+	// add
+	VPADDW Y15, Y5, Y5
+	VPADDW Y3, Y6, Y6
+	VPADDW Y4, Y7, Y7
+
+	// reduce 2
+	VMOVDQU ·v_x16<>(SB), Y3
+	VPMULHW Y3, Y5, Y8
+	VPMULHW Y3, Y6, Y9
+	VPMULHW Y3, Y7, Y10
+	VPSRAW  $11, Y8, Y8
+	VPSRAW  $11, Y9, Y9
+	VPSRAW  $11, Y10, Y10
+	VPMULLW Y1, Y8, Y8
+	VPMULLW Y1, Y9, Y9
+	VPMULLW Y1, Y10, Y10
+	VPSUBW  Y8, Y5, Y5
+	VPSUBW  Y9, Y6, Y6
+	VPSUBW  Y10, Y7, Y7
+
+	// store
+	VMOVDQA Y5, (DI)(BX*1)
+	VMOVDQA Y6, (32)(DI)(BX*1)
+	VMOVDQA Y7, (64)(DI)(BX*1)
+
+	ADDQ $1, AX
+	ADDQ $96, BX
+	CMPQ AX, $5
+	JB   looptop2
+
+	// load
+	VMOVDQA (SI)(BX*1), Y4
+	VMOVDQA (R8)(BX*1), Y7
+	VMOVDQA (DX)(BX*1), Y9
+	VMOVDQA (R11)(BX*1), Y12
+
+	// mul montsq
+	VPMULLW Y2, Y4, Y3
+	VPMULHW Y2, Y4, Y10
+	VPMULLW Y2, Y7, Y6
+	VPMULHW Y2, Y7, Y13
+
+	// reduce
+	VPMULLW Y0, Y3, Y3
+	VPMULLW Y0, Y6, Y6
+	VPMULHW Y1, Y3, Y3
+	VPMULHW Y1, Y6, Y6
+	VPSUBW  Y3, Y10, Y3
+	VPSUBW  Y6, Y13, Y6
+
+	// mul
+	VPMULLW Y3, Y9, Y15
+	VPMULHW Y3, Y9, Y9
+	VPMULLW Y6, Y12, Y5
+	VPMULHW Y6, Y12, Y12
+
+	// reduce
+	VPMULLW Y0, Y15, Y15
+	VPMULLW Y0, Y5, Y5
+	VPMULHW Y1, Y15, Y15
+	VPMULHW Y1, Y5, Y5
+	VPSUBW  Y15, Y9, Y15
+	VPSUBW  Y5, Y12, Y5
+
+	// add
+	VPADDW Y15, Y5, Y5
+
+	// reduce 2
+	VMOVDQU ·v_x16<>(SB), Y3
+	VPMULHW Y3, Y5, Y8
+	VPSRAW  $11, Y8, Y8
+	VPMULLW Y1, Y8, Y8
+	VPSUBW  Y8, Y5, Y5
+
+	// store
+	VMOVDQA Y5, (DI)(BX*1)
+
+	VZEROUPPER
+	RET
+
+// func pointwiseAccK2AVX2(dst *uint16, a, b **uint16)
+TEXT ·pointwiseAccK3AVX2(SB), NOSPLIT, $0-24
+	MOVQ dst+0(FP), DI
+	MOVQ a+8(FP), SI
+	MOVQ b+16(FP), DX
+
+	VMOVDQU ·qinv_x16<>(SB), Y0
+	VMOVDQU ·q_x16<>(SB), Y1
+	VMOVDQU ·montsq_x16<>(SB), Y2
+
+	XORQ AX, AX
+	XORQ BX, BX
+
+	MOVQ (16)(SI), R9  // a[2]
+	MOVQ (8)(SI), R8   // a[1]
+	MOVQ (SI), SI      // a[0]
+	MOVQ (16)(DX), R12 // b[2]
+	MOVQ (8)(DX), R11  // b[1]
+	MOVQ (DX), DX      // b[0]
+
+looptop3:
+	// load a
+	VMOVDQA (SI)(BX*1), Y4
+	VMOVDQA (32)(SI)(BX*1), Y5
+	VMOVDQA (R8)(BX*1), Y6
+	VMOVDQA (32)(R8)(BX*1), Y7
+	VMOVDQA (R9)(BX*1), Y8
+	VMOVDQA (32)(R9)(BX*1), Y9
+
+	// mul montsq
+	VPMULLW Y2, Y4, Y3
+	VPMULHW Y2, Y4, Y10
+	VPMULLW Y2, Y5, Y4
+	VPMULHW Y2, Y5, Y11
+	VPMULLW Y2, Y6, Y5
+	VPMULHW Y2, Y6, Y12
+	VPMULLW Y2, Y7, Y6
+	VPMULHW Y2, Y7, Y13
+	VPMULLW Y2, Y8, Y7
+	VPMULHW Y2, Y8, Y14
+	VPMULLW Y2, Y9, Y8
+	VPMULHW Y2, Y9, Y15
+
+	// reduce
+	VPMULLW Y0, Y3, Y3
+	VPMULLW Y0, Y4, Y4
+	VPMULLW Y0, Y5, Y5
+	VPMULLW Y0, Y6, Y6
+	VPMULLW Y0, Y7, Y7
+	VPMULLW Y0, Y8, Y8
+	VPMULHW Y1, Y3, Y3
+	VPMULHW Y1, Y4, Y4
+	VPMULHW Y1, Y5, Y5
+	VPMULHW Y1, Y6, Y6
+	VPMULHW Y1, Y7, Y7
+	VPMULHW Y1, Y8, Y8
+	VPSUBW  Y3, Y10, Y3
+	VPSUBW  Y4, Y11, Y4
+	VPSUBW  Y5, Y12, Y5
+	VPSUBW  Y6, Y13, Y6
+	VPSUBW  Y7, Y14, Y7
+	VPSUBW  Y8, Y15, Y8
+
+	// load b
+	VMOVDQA (DX)(BX*1), Y9
+	VMOVDQA (32)(DX)(BX*1), Y10
+	VMOVDQA (R11)(BX*1), Y11
+	VMOVDQA (32)(R11)(BX*1), Y12
+	VMOVDQA (R12)(BX*1), Y13
+	VMOVDQA (32)(R12)(BX*1), Y14
+
+	// mul
+	VPMULLW Y3, Y9, Y15
+	VPMULHW Y3, Y9, Y9
+	VPMULLW Y4, Y10, Y3
+	VPMULHW Y4, Y10, Y10
+	VPMULLW Y5, Y11, Y4
+	VPMULHW Y5, Y11, Y11
+	VPMULLW Y6, Y12, Y5
+	VPMULHW Y6, Y12, Y12
+	VPMULLW Y7, Y13, Y6
+	VPMULHW Y7, Y13, Y13
+	VPMULLW Y8, Y14, Y7
+	VPMULHW Y8, Y14, Y14
+
+	// reduce
+	VPMULLW Y0, Y15, Y15
+	VPMULLW Y0, Y3, Y3
+	VPMULLW Y0, Y4, Y4
+	VPMULLW Y0, Y5, Y5
+	VPMULLW Y0, Y6, Y6
+	VPMULLW Y0, Y7, Y7
+	VPMULHW Y1, Y15, Y15
+	VPMULHW Y1, Y3, Y3
+	VPMULHW Y1, Y4, Y4
+	VPMULHW Y1, Y5, Y5
+	VPMULHW Y1, Y6, Y6
+	VPMULHW Y1, Y7, Y7
+	VPSUBW  Y15, Y9, Y15
+	VPSUBW  Y3, Y10, Y3
+	VPSUBW  Y4, Y11, Y4
+	VPSUBW  Y5, Y12, Y5
+	VPSUBW  Y6, Y13, Y6
+	VPSUBW  Y7, Y14, Y7
+
+	// add
+	VPADDW Y15, Y4, Y4
+	VPADDW Y3, Y5, Y5
+	VPADDW Y4, Y6, Y6
+	VPADDW Y5, Y7, Y7
+
+	// reduce 2
+	VMOVDQU ·v_x16<>(SB), Y3
+	VPMULHW Y3, Y6, Y8
+	VPMULHW Y3, Y7, Y9
+	VPSRAW  $11, Y8, Y8
+	VPSRAW  $11, Y9, Y9
+	VPMULLW Y1, Y8, Y8
+	VPMULLW Y1, Y9, Y9
+	VPSUBW  Y8, Y6, Y6
+	VPSUBW  Y9, Y7, Y7
+
+	// store
+	VMOVDQA Y6, (DI)(BX*1)
+	VMOVDQA Y7, (32)(DI)(BX*1)
+
+	ADDQ $1, AX
+	ADDQ $64, BX
+	CMPQ AX, $8
+	JB   looptop3
+
+	VZEROUPPER
+	RET
+
+// func pointwiseAccK2AVX2(dst *uint16, a, b **uint16)
+TEXT ·pointwiseAccK4AVX2(SB), NOSPLIT, $0-24
+	MOVQ dst+0(FP), DI
+	MOVQ a+8(FP), SI
+	MOVQ b+16(FP), DX
+
+	VMOVDQU ·qinv_x16<>(SB), Y0
+	VMOVDQU ·q_x16<>(SB), Y1
+	VMOVDQU ·montsq_x16<>(SB), Y2
+	VMOVDQU ·v_x16<>(SB), Y3
+
+	XORQ AX, AX
+	XORQ BX, BX
+
+	MOVQ (24)(SI), R10 // a[3]
+	MOVQ (16)(SI), R9  // a[2]
+	MOVQ (8)(SI), R8   // a[1]
+	MOVQ (SI), SI      // a[0]
+	MOVQ (24)(DX), R13 // b[3]
+	MOVQ (16)(DX), R12 // b[2]
+	MOVQ (8)(DX), R11  // b[1]
+	MOVQ (DX), DX      // b[0]
+
+looptop4:
+	// load a
+	VMOVDQA (SI)(BX*1), Y6
+	VMOVDQA (R8)(BX*1), Y7
+	VMOVDQA (R9)(BX*1), Y8
+	VMOVDQA (R10)(BX*1), Y9
+
+	// mul montsq
+	VPMULLW Y2, Y6, Y5
+	VPMULHW Y2, Y6, Y10
+	VPMULLW Y2, Y7, Y6
+	VPMULHW Y2, Y7, Y11
+	VPMULLW Y2, Y8, Y7
+	VPMULHW Y2, Y8, Y12
+	VPMULLW Y2, Y9, Y8
+	VPMULHW Y2, Y9, Y13
+
+	// reduce
+	VPMULLW Y0, Y5, Y5
+	VPMULLW Y0, Y6, Y6
+	VPMULLW Y0, Y7, Y7
+	VPMULLW Y0, Y8, Y8
+	VPMULHW Y1, Y5, Y5
+	VPMULHW Y1, Y6, Y6
+	VPMULHW Y1, Y7, Y7
+	VPMULHW Y1, Y8, Y8
+	VPSUBW  Y5, Y10, Y5
+	VPSUBW  Y6, Y11, Y6
+	VPSUBW  Y7, Y12, Y7
+	VPSUBW  Y8, Y13, Y8
+
+	// load b
+	VMOVDQA (DX)(BX*1), Y9
+	VMOVDQA (R11)(BX*1), Y10
+	VMOVDQA (R12)(BX*1), Y11
+	VMOVDQA (R13)(BX*1), Y12
+
+	// mul
+	VPMULLW Y5, Y9, Y4
+	VPMULHW Y5, Y9, Y9
+	VPMULLW Y6, Y10, Y5
+	VPMULHW Y6, Y10, Y10
+	VPMULLW Y7, Y11, Y6
+	VPMULHW Y7, Y11, Y11
+	VPMULLW Y8, Y12, Y7
+	VPMULHW Y8, Y12, Y12
+
+	// reduce
+	VPMULLW Y0, Y4, Y4
+	VPMULLW Y0, Y5, Y5
+	VPMULLW Y0, Y6, Y6
+	VPMULLW Y0, Y7, Y7
+	VPMULHW Y1, Y4, Y4
+	VPMULHW Y1, Y5, Y5
+	VPMULHW Y1, Y6, Y6
+	VPMULHW Y1, Y7, Y7
+	VPSUBW  Y4, Y9, Y4
+	VPSUBW  Y5, Y10, Y5
+	VPSUBW  Y6, Y11, Y6
+	VPSUBW  Y7, Y12, Y7
+
+	// add
+	VPADDW Y4, Y5, Y5
+	VPADDW Y5, Y6, Y6
+	VPADDW Y6, Y7, Y7
+
+	// reduce 2
+	VPMULHW Y3, Y7, Y8
+	VPSRAW  $11, Y8, Y8
+	VPMULLW Y1, Y8, Y8
+	VPSUBW  Y8, Y7, Y8
+
+	// store
+	VMOVDQA Y8, (DI)(BX*1)
+
+	ADDQ $1, AX
+	ADDQ $32, BX
+	CMPQ AX, $16
+	JB   looptop4
 
 	VZEROUPPER
 	RET

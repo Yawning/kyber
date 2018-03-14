@@ -12,17 +12,18 @@ var (
 	hardwareAccelImpl     = implReference
 
 	implReference = &hwaccelImpl{
-		name:     "Reference",
-		nttFn:    nttRef,
-		invnttFn: invnttRef,
+		name:           "Reference",
+		nttFn:          nttRef,
+		invnttFn:       invnttRef,
+		pointwiseAccFn: pointwiseAccRef,
 	}
 )
 
 type hwaccelImpl struct {
-	name                   string
-	nttFn                  func(*[kyberN]uint16)
-	invnttFn               func(*[kyberN]uint16)
-	pointwiseAccMustFreeze bool
+	name           string
+	nttFn          func(*[kyberN]uint16)
+	invnttFn       func(*[kyberN]uint16)
+	pointwiseAccFn func(*poly, *polyVec, *polyVec)
 }
 
 func forceDisableHardwareAcceleration() {
