@@ -7,23 +7,29 @@
 
 package kyber
 
-const implReference = "Reference"
-
 var (
 	isHardwareAccelerated = false
 	hardwareAccelImpl     = implReference
 
-	nttFn    = nttRef
-	invnttFn = invnttRef
+	implReference = &hwaccelImpl{
+		name:     "Reference",
+		nttFn:    nttRef,
+		invnttFn: invnttRef,
+	}
 )
+
+type hwaccelImpl struct {
+	name                   string
+	nttFn                  func(*[kyberN]uint16)
+	invnttFn               func(*[kyberN]uint16)
+	pointwiseAccMustFreeze bool
+}
 
 func forceDisableHardwareAcceleration() {
 	// This is for the benefit of testing, so that it's possible to test
 	// all versions that are supported by the host.
 	isHardwareAccelerated = false
 	hardwareAccelImpl = implReference
-	nttFn = nttRef
-	invnttFn = invnttRef
 }
 
 // IsHardwareAccelerated returns true iff the Kyber implementation will use

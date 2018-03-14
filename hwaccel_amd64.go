@@ -9,8 +9,6 @@
 
 package kyber
 
-const implAVX2 = "AVX2"
-
 var zetasExp = [752]uint16{
 	3777, 3777, 3777, 3777, 3777, 3777, 3777, 3777, 3777, 3777, 3777, 3777,
 	3777, 3777, 3777, 3777, 4499, 4499, 4499, 4499, 4499, 4499, 4499, 4499,
@@ -190,19 +188,24 @@ func supportsAVX2() bool {
 	return regs[1]&avx2Bit != 0
 }
 
+var implAVX2 = &hwaccelImpl{
+	name:                   "AVX2",
+	nttFn:                  nttOpt,
+	invnttFn:               invnttOpt,
+	pointwiseAccMustFreeze: true,
+}
+
 func nttOpt(p *[kyberN]uint16) {
 	nttAVX2(&p[0], &zetasExp[0])
 }
 
-func invnttOpt(p *[kyberN]uint16) {
-	invnttAVX2(&p[0], &zetasInvExp[0])
+func invnttOpt(a *[kyberN]uint16) {
+	invnttAVX2(&a[0], &zetasInvExp[0])
 }
 
 func initHardwareAcceleration() {
 	if supportsAVX2() {
 		isHardwareAccelerated = true
 		hardwareAccelImpl = implAVX2
-		nttFn = nttOpt
-		invnttFn = invnttOpt
 	}
 }

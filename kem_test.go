@@ -47,7 +47,7 @@ func TestKEM(t *testing.T) {
 }
 
 func doTestKEM(t *testing.T) {
-	impl := "_" + hardwareAccelImpl
+	impl := "_" + hardwareAccelImpl.name
 	for _, p := range allParams {
 		t.Run(p.Name()+"_Keys"+impl, func(t *testing.T) { doTestKEMKeys(t, p) })
 		t.Run(p.Name()+"_Invalid_SecretKey_A"+impl, func(t *testing.T) { doTestKEMInvalidSkA(t, p) })
@@ -168,7 +168,7 @@ func BenchmarkKEM(b *testing.B) {
 }
 
 func doBenchmarkKEM(b *testing.B) {
-	impl := "_" + hardwareAccelImpl
+	impl := "_" + hardwareAccelImpl.name
 	for _, p := range allParams {
 		b.Run(p.Name()+"_GenerateKeyPair"+impl, func(b *testing.B) { doBenchKEMGenerateKeyPair(b, p) })
 		b.Run(p.Name()+"_KEMEncrypt"+impl, func(b *testing.B) { doBenchKEMEncDec(b, p, true) })

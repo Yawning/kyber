@@ -42,7 +42,7 @@ func TestKEMVectors(t *testing.T) {
 }
 
 func doTestKEMVectors(t *testing.T) {
-	impl := "_" + hardwareAccelImpl
+	impl := "_" + hardwareAccelImpl.name
 	for _, p := range allParams {
 		t.Run(p.Name()+impl, func(t *testing.T) { doTestKEMVectorsPick(t, p) })
 	}

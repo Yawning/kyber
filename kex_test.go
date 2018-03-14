@@ -27,7 +27,7 @@ func TestAKE(t *testing.T) {
 }
 
 func doTestKEX(t *testing.T) {
-	impl := "_" + hardwareAccelImpl
+	impl := "_" + hardwareAccelImpl.name
 	for _, p := range allParams {
 		t.Run(p.Name()+"_UAKE"+impl, func(t *testing.T) { doTestUAKE(t, p) })
 		t.Run(p.Name()+"_AKE"+impl, func(t *testing.T) { doTestAKE(t, p) })

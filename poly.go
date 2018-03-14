@@ -121,14 +121,14 @@ func (p *poly) getNoise(seed []byte, nonce byte, eta int) {
 // Computes negacyclic number-theoretic transform (NTT) of a polynomial in
 // place; inputs assumed to be in normal order, output in bitreversed order.
 func (p *poly) ntt() {
-	nttFn(&p.coeffs)
+	hardwareAccelImpl.nttFn(&p.coeffs)
 }
 
 // Computes inverse of negacyclic number-theoretic transform (NTT) of a
 // polynomial in place; inputs assumed to be in bitreversed order, output in
 // normal order.
 func (p *poly) invntt() {
-	invnttFn(&p.coeffs)
+	hardwareAccelImpl.invnttFn(&p.coeffs)
 }
 
 // Add two polynomials.
