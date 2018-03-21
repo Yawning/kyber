@@ -23,7 +23,7 @@ func Example_keyEncapsulationMechanism() {
 
 	// Alice, step 2: Send the public key to Bob (Not shown).
 
-	// Bob, Step 1: Deserialize Alice's public key from the binary encoding.
+	// Bob, step 1: Deserialize Alice's public key from the binary encoding.
 	peerPublicKey, err := Kyber768.PublicKeyFromBytes(alicePublicKey.Bytes())
 	if err != nil {
 		panic(err)
