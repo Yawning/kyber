@@ -202,21 +202,21 @@ func supportsAVX2() bool {
 
 var implAVX2 = &hwaccelImpl{
 	name:           "AVX2",
-	nttFn:          nttOpt,
-	invnttFn:       invnttOpt,
-	pointwiseAccFn: pointwiseAccOpt,
-	cbdFn:          cbdOpt,
+	nttFn:          nttYMM,
+	invnttFn:       invnttYMM,
+	pointwiseAccFn: pointwiseAccYMM,
+	cbdFn:          cbdYMM,
 }
 
-func nttOpt(p *[kyberN]uint16) {
+func nttYMM(p *[kyberN]uint16) {
 	nttAVX2(&p[0], &zetasExp[0])
 }
 
-func invnttOpt(a *[kyberN]uint16) {
+func invnttYMM(a *[kyberN]uint16) {
 	invnttAVX2(&a[0], &zetasInvExp[0])
 }
 
-func pointwiseAccOpt(p *poly, a, b *polyVec) {
+func pointwiseAccYMM(p *poly, a, b *polyVec) {
 	// Unlike the C code, a polyVec won't have the polys in contigious
 	// memory.  So each assembly function takes vectors of pointers to
 	// each polyvec's polys.
@@ -239,7 +239,7 @@ func pointwiseAccOpt(p *poly, a, b *polyVec) {
 	}
 }
 
-func cbdOpt(p *poly, buf []byte, eta int) {
+func cbdYMM(p *poly, buf []byte, eta int) {
 	switch eta {
 	case 4:
 		cbdEta4AVX2(&p.coeffs[0], &buf[0])
