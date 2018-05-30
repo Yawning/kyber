@@ -86,8 +86,7 @@ func doTestKEMKeys(t *testing.T, p *ParameterSet) {
 		require.Len(ct, p.CipherTextSize(), "KEMEncrypt(): ct Length")
 		require.Len(ss, SymSize, "KEMEncrypt(): ss Length")
 
-		ss2, fail := sk.KEMDecrypt(ct)
-		require.Equal(0, fail, "KEMDecrypt(): fail")
+		ss2 := sk.KEMDecrypt(ct)
 		require.Equal(ss, ss2, "KEMDecrypt(): ss")
 	}
 }
@@ -109,8 +108,7 @@ func doTestKEMInvalidSkA(t *testing.T, p *ParameterSet) {
 		require.NoError(err, "rand.Read()")
 
 		// Alice uses Bob's response to get her secret key.
-		keyA, fail := skA.KEMDecrypt(sendB)
-		require.Equal(-1, fail, "KEMDecrypt(): fail")
+		keyA := skA.KEMDecrypt(sendB)
 		require.NotEqual(keyA, keyB, "KEMDecrypt(): ss")
 	}
 }
@@ -138,8 +136,7 @@ func doTestKEMInvalidCipherText(t *testing.T, p *ParameterSet) {
 		sendB[pos%ciphertextSize] ^= 23
 
 		// Alice uses Bob's response to get her secret key.
-		keyA, fail := skA.KEMDecrypt(sendB)
-		require.Equal(-1, fail, "KEMDecrypt(): fail")
+		keyA := skA.KEMDecrypt(sendB)
 		require.NotEqual(keyA, keyB, "KEMDecrypt(): ss")
 	}
 }
@@ -207,14 +204,11 @@ func doBenchKEMEncDec(b *testing.B, p *ParameterSet, isEnc bool) {
 			b.StartTimer()
 		}
 
-		keyA, fail := skA.KEMDecrypt(sendB)
+		keyA := skA.KEMDecrypt(sendB)
 		if !isEnc {
 			b.StopTimer()
 		}
 
-		if fail != 0 {
-			b.Fatalf("KEMDecrypt(): fail %v", fail)
-		}
 		if !bytes.Equal(keyA, keyB) {
 			b.Fatalf("KEMDecrypt(): key mismatch")
 		}

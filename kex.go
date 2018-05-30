@@ -49,14 +49,14 @@ type UAKEInitiatorState struct {
 // Shared generates a shared secret for the given UAKE instance and responder
 // message.
 //
-// On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.  Providing a malformed
-// responder message will result in a panic.
-func (s *UAKEInitiatorState) Shared(recv []byte) (sharedSecret []byte, fail int) {
+// On failures, sharedSecret will contain a randomized value.  Providing a
+// cipher text that is obviously malformed (too large/small) will result in a
+// panic.
+func (s *UAKEInitiatorState) Shared(recv []byte) (sharedSecret []byte) {
 	xof := sha3.NewShake256()
 	var tk []byte
 
-	tk, fail = s.eSk.KEMDecrypt(recv)
+	tk = s.eSk.KEMDecrypt(recv)
 	xof.Write(tk)
 	xof.Write(s.tk)
 	sharedSecret = make([]byte, SymSize)
@@ -91,10 +91,10 @@ func (pk *PublicKey) NewUAKEInitiatorState(rng io.Reader) (*UAKEInitiatorState, 
 // UAKEResponderShared generates a responder message and shared secret given
 // a initiator UAKE message.
 //
-// On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.  Providing a malformed
-// initator message will result in a panic.
-func (sk *PrivateKey) UAKEResponderShared(rng io.Reader, recv []byte) (message, sharedSecret []byte, fail int) {
+// On failures, sharedSecret will contain a randomized value.  Providing a
+// cipher text that is obviously malformed (too large/small) will result in a
+// panic.
+func (sk *PrivateKey) UAKEResponderShared(rng io.Reader, recv []byte) (message, sharedSecret []byte) {
 	p := sk.PublicKey.p
 	pkLen := p.PublicKeySize()
 
@@ -117,7 +117,7 @@ func (sk *PrivateKey) UAKEResponderShared(rng io.Reader, recv []byte) (message, 
 	}
 	xof.Write(tk)
 
-	tk, fail = sk.KEMDecrypt(ct)
+	tk = sk.KEMDecrypt(ct)
 	xof.Write(tk)
 	sharedSecret = make([]byte, SymSize)
 	xof.Read(sharedSecret)
@@ -150,11 +150,10 @@ type AKEInitiatorState struct {
 // Shared generates a shared secret for the given AKE instance, responder
 // message, and long term initiator private key.
 //
-// On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.   Providing a malformed
-// responder message, or a private key that uses a different ParamterSet
-// than the AKEInitiatorState will result in a panic.
-func (s *AKEInitiatorState) Shared(recv []byte, initiatorPrivateKey *PrivateKey) (sharedSecret []byte, fail int) {
+// On failures sharedSecret will contain a randomized value.   Providing a
+// malformed responder message, or a private key that uses a different
+// ParamterSet than the AKEInitiatorState will result in a panic.
+func (s *AKEInitiatorState) Shared(recv []byte, initiatorPrivateKey *PrivateKey) (sharedSecret []byte) {
 	p := s.eSk.PublicKey.p
 
 	if initiatorPrivateKey.PublicKey.p != p {
@@ -168,13 +167,11 @@ func (s *AKEInitiatorState) Shared(recv []byte, initiatorPrivateKey *PrivateKey)
 	xof := sha3.NewShake256()
 	var tk []byte
 
-	tk, fail = s.eSk.KEMDecrypt(recv[:ctLen])
+	tk = s.eSk.KEMDecrypt(recv[:ctLen])
 	xof.Write(tk)
 
-	var fail2 int
-	tk, fail2 = initiatorPrivateKey.KEMDecrypt(recv[ctLen:])
+	tk = initiatorPrivateKey.KEMDecrypt(recv[ctLen:])
 	xof.Write(tk)
-	fail |= fail2
 
 	xof.Write(s.tk)
 	sharedSecret = make([]byte, SymSize)
@@ -203,11 +200,10 @@ func (pk *PublicKey) NewAKEInitiatorState(rng io.Reader) (*AKEInitiatorState, er
 // AKEResponderShared generates a responder message and shared secret given
 // a initiator AKE message and long term initiator public key.
 //
-// On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.  Providing a malformed
-// initiator message, or a public key that uses a different ParamterSet
-// than the PrivateKey will result in a panic.
-func (sk *PrivateKey) AKEResponderShared(rng io.Reader, recv []byte, peerPublicKey *PublicKey) (message, sharedSecret []byte, fail int) {
+// On failures sharedSecret will contain a randomized value.   Providing a
+// malformed responder message, or a private key that uses a different
+// ParamterSet than the AKEInitiatorState will result in a panic.
+func (sk *PrivateKey) AKEResponderShared(rng io.Reader, recv []byte, peerPublicKey *PublicKey) (message, sharedSecret []byte) {
 	p := sk.PublicKey.p
 	pkLen := p.PublicKeySize()
 
@@ -244,7 +240,7 @@ func (sk *PrivateKey) AKEResponderShared(rng io.Reader, recv []byte, peerPublicK
 	xof.Write(tk)
 	message = append(message, tmp...)
 
-	tk, fail = sk.KEMDecrypt(ct)
+	tk = sk.KEMDecrypt(ct)
 	xof.Write(tk)
 	sharedSecret = make([]byte, SymSize)
 	xof.Read(sharedSecret)

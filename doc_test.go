@@ -38,10 +38,7 @@ func Example_keyEncapsulationMechanism() {
 	// Bob, step 3: Send the cipher text to Alice (Not shown).
 
 	// Alice, step 3: Decrypt the KEM cipher text.
-	aliceSharedSecret, fail := alicePrivateKey.KEMDecrypt(cipherText)
-	if fail != 0 {
-		panic("Alice: KEMDecrypt failed")
-	}
+	aliceSharedSecret := alicePrivateKey.KEMDecrypt(cipherText)
 
 	// Alice and Bob have identical values for the shared secrets.
 	if bytes.Equal(aliceSharedSecret, bobSharedSecret) {
@@ -71,18 +68,12 @@ func Example_keyExchangeUnilateralAuth() {
 	// Bob, step 2: Send the key exchange message to Alice (Not shown).
 
 	// Alice, step 1: Generates a responder message and shared secret.
-	aliceMessage, aliceSharedSecret, fail := aliceStaticPrivateKey.UAKEResponderShared(rand.Reader, bobState.Message)
-	if fail != 0 {
-		panic("Alice: privKey.UAKEResponderShared failed")
-	}
+	aliceMessage, aliceSharedSecret := aliceStaticPrivateKey.UAKEResponderShared(rand.Reader, bobState.Message)
 
 	// Alice, step 2: Send the responder message to Bob (Not shown).
 
 	// Bob, step 3: Generate the shared secret.
-	bobSharedSecret, fail := bobState.Shared(aliceMessage)
-	if fail != 0 {
-		panic("Bob: UAKEInitiatorState.Shared failed")
-	}
+	bobSharedSecret := bobState.Shared(aliceMessage)
 
 	// Alice and Bob have identical values for the shared secrets, and Bob is
 	// certain that the peer posesses aliceStaticPrivateKey.
@@ -118,18 +109,12 @@ func Example_keyExchangeMutualAuth() {
 	// Bob, step 2: Send the key exchange message to Alice (Not shown).
 
 	// Alice, step 1: Generates a responder message and shared secret.
-	aliceMessage, aliceSharedSecret, fail := aliceStaticPrivateKey.AKEResponderShared(rand.Reader, bobState.Message, bobStaticPublicKey)
-	if fail != 0 {
-		panic("Alice: privKey.AKEResponderShared failed")
-	}
+	aliceMessage, aliceSharedSecret := aliceStaticPrivateKey.AKEResponderShared(rand.Reader, bobState.Message, bobStaticPublicKey)
 
 	// Alice, step 2: Send the responder message to Bob (Not shown).
 
 	// Bob, step 3: Generate the shared secret.
-	bobSharedSecret, fail := bobState.Shared(aliceMessage, bobStaticPrivateKey)
-	if fail != 0 {
-		panic("Bob: AKEInitiatorState.Shared failed")
-	}
+	bobSharedSecret := bobState.Shared(aliceMessage, bobStaticPrivateKey)
 
 	// Alice and Bob have identical values for the shared secrets, and each
 	// party is certain that the peer posesses the appropriate long-term

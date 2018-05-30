@@ -81,8 +81,7 @@ func doTestKEMVectorsFull(require *require.Assertions, p *ParameterSet, vecs []*
 		require.Equal(vec.sendB, sendB, "sendB: %v", idx)
 		require.Equal(vec.keyB, keyB, "keyB: %v", idx)
 
-		keyA, fail := sk.KEMDecrypt(sendB)
-		require.Equal(0, fail, "fail: %v", idx)
+		keyA := sk.KEMDecrypt(sendB)
 		require.Equal(vec.keyA, keyA, "keyA: %v", idx)
 	}
 }
@@ -105,8 +104,7 @@ func doTestKEMVectorsCompact(require *require.Assertions, p *ParameterSet) {
 		h.Write([]byte(hex.EncodeToString(sendB) + "\n"))
 		h.Write([]byte(hex.EncodeToString(keyB) + "\n"))
 
-		keyA, fail := sk.KEMDecrypt(sendB)
-		require.Equal(0, fail, "fail: %v", idx)
+		keyA := sk.KEMDecrypt(sendB)
 		h.Write([]byte(hex.EncodeToString(keyA) + "\n"))
 	}
 

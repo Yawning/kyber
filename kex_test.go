@@ -51,14 +51,12 @@ func doTestUAKE(t *testing.T, p *ParameterSet) {
 		require.Len(stateA.Message, p.UAKEInitiatorMessageSize(), "stateA.Message: Length")
 
 		// Create the responder message and shared secret.
-		msgB, ssB, fail := skB.UAKEResponderShared(rand.Reader, stateA.Message)
-		require.Equal(0, fail, "UAKEResponderShared(): fail")
+		msgB, ssB := skB.UAKEResponderShared(rand.Reader, stateA.Message)
 		require.Len(msgB, p.UAKEResponderMessageSize(), "UAKEResponderShared(): msgB Length")
 		require.Len(ssB, SymSize, "UAKEResponderShared(): ssB Length")
 
 		// Create the initiator shared secret.
-		ssA, fail := stateA.Shared(msgB)
-		require.Equal(0, fail, "stateA.Shared(): fail")
+		ssA := stateA.Shared(msgB)
 		require.Equal(ssA, ssB, "Shared secret mismatch")
 	}
 }
@@ -83,14 +81,12 @@ func doTestAKE(t *testing.T, p *ParameterSet) {
 		require.Len(stateA.Message, p.AKEInitiatorMessageSize(), "stateA.Message: Length")
 
 		// Create the responder message and shared secret.
-		msgB, ssB, fail := skB.AKEResponderShared(rand.Reader, stateA.Message, pkA)
-		require.Equal(0, fail, "AKEResponderShared(): fail")
+		msgB, ssB := skB.AKEResponderShared(rand.Reader, stateA.Message, pkA)
 		require.Len(msgB, p.AKEResponderMessageSize(), "AKEResponderShared(): msgB Length")
 		require.Len(ssB, SymSize, "AKEResponderShared(): ssB Length")
 
 		// Create the initiator shared secret.
-		ssA, fail := stateA.Shared(msgB, skA)
-		require.Equal(0, fail, "stateA.Shared(): fail")
+		ssA := stateA.Shared(msgB, skA)
 		require.Equal(ssA, ssB, "Shared secret mismatch")
 	}
 }

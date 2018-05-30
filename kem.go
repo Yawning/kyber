@@ -155,10 +155,10 @@ func (pk *PublicKey) KEMEncrypt(rng io.Reader) (cipherText []byte, sharedSecret 
 // KEMDecrypt generates shared secret for given cipher text via the CCA-secure
 // Kyber key encapsulation mechanism.
 //
-// On success fail will be 0, otherwise fail will be set to -1 and
-// sharedSecret will contain a randomized value.  Providing a cipher text
-// that is obviously malformed (too large/small) will result in a panic.
-func (sk *PrivateKey) KEMDecrypt(cipherText []byte) (sharedSecret []byte, fail int) {
+// On failures, sharedSecret will contain a randomized value.  Providing a
+// cipher text that is obviously malformed (too large/small) will result in a
+// panic.
+func (sk *PrivateKey) KEMDecrypt(cipherText []byte) (sharedSecret []byte) {
 	var buf [2 * SymSize]byte
 
 	p := sk.PublicKey.p
@@ -176,9 +176,8 @@ func (sk *PrivateKey) KEMDecrypt(cipherText []byte) (sharedSecret []byte, fail i
 	hc := sha3.Sum256(cipherText)
 	copy(kr[SymSize:], hc[:]) // overwrite coins in kr with H(c)
 
-	fail = subtle.ConstantTimeSelect(subtle.ConstantTimeCompare(cipherText, cmp), 0, 1)
+	fail := subtle.ConstantTimeSelect(subtle.ConstantTimeCompare(cipherText, cmp), 0, 1)
 	subtle.ConstantTimeCopy(fail, kr[SymSize:], sk.z) // Overwrite pre-k with z on re-encryption failure
-	fail = -fail
 
 	h := sha3.New256()
 	h.Write(kr[:])
